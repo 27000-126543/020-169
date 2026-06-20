@@ -12,6 +12,7 @@ import {
   getRelativeDateLabel,
   formatDate,
   formatDateCN,
+  formatDateTimeCN,
 } from '@/utils/date'
 import {
   ArrowLeft,
@@ -114,10 +115,10 @@ export default function CaseDetailPage() {
                   )}
                 </span>
               </div>
-              {patient.nextContactDate && (
+              {patient.nextContactAt && (
                 <div className="flex items-center gap-1 text-primary-500">
                   <Clock size={14} />
-                  下次联系：{patient.nextContactDate}
+                  下次联系：{formatDateTimeCN(patient.nextContactAt)}
                 </div>
               )}
             </div>
@@ -179,10 +180,10 @@ export default function CaseDetailPage() {
                   <p className="text-sm text-gray-600 pl-6">{record.callNotes}</p>
                 )}
                 <div className="flex flex-wrap gap-3 pl-6 mt-1.5">
-                  {record.nextContactDate && (
+                  {record.nextContactAt && (
                     <span className="text-xs text-primary-500 flex items-center gap-1">
                       <Clock size={12} />
-                      下次联系：{record.nextContactDate}
+                      下次联系：{formatDateTimeCN(record.nextContactAt)}
                     </span>
                   )}
                   {record.rescheduledFollowUpDate && (

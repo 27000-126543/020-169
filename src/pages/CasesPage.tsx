@@ -4,6 +4,8 @@ import { useStore } from '@/store/useStore'
 import PatientForm from '@/components/patient/PatientForm'
 import ContactStatusBadge from '@/components/patient/ContactStatusBadge'
 import FollowUpCalendar from '@/components/calendar/FollowUpCalendar'
+import WeeklySummary from '@/components/calendar/WeeklySummary'
+import ContactQueue from '@/components/contact/ContactQueue'
 import { getToothLabel } from '@/utils/scripts'
 import {
   getDaysOverdue,
@@ -15,7 +17,7 @@ import {
 import type { TreatmentStep, ContactStatus, Patient } from '@/types'
 import { Plus, Search, List, Calendar, CalendarDays, ChevronRight } from 'lucide-react'
 
-type ViewMode = 'list' | 'calendar' | 'week'
+type ViewMode = 'list' | 'calendar' | 'week' | 'summary'
 
 export default function CasesPage() {
   const patients = useStore((s) => s.patients)
@@ -24,11 +26,12 @@ export default function CasesPage() {
   const navigate = useNavigate()
 
   const [showAddForm, setShowAddForm] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [viewMode, setViewMode] = useState<ViewMode>('summary')
   const [search, setSearch] = useState('')
   const [stepFilter, setStepFilter] = useState<TreatmentStep | ''>('')
   const [statusFilter, setStatusFilter] = useState<ContactStatus | ''>('')
   const [selectedDate, setSelectedDate] = useState<string>(formatDate(new Date().toISOString()))
+  const [showQueueForDate, setShowQueueForDate] = useState<string | null>(null)
 
   const weekPatients = useMemo(() => {
     const today = new Date()
@@ -70,6 +73,14 @@ export default function CasesPage() {
 
   const datePatients = getPatientsByDate(selectedDate)
 
+  if (showQueueForDate) {
+    return (
+      <ContactQueue
+        onExit={() => setShowQueueForDate(null)}
+      />
+    )
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -91,6 +102,15 @@ export default function CasesPage() {
       <div className="bg-white rounded-xl shadow-sm border border-warm-100 mb-6">
         <div className="flex items-center justify-between p-3 border-b border-warm-100">
           <div className="flex items-center gap-1 bg-warm-50 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('summary')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'summary' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <CalendarDays size={14} />
+              周排班摘要
+            </button>
             <button
               onClick={() => setViewMode('list')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -160,6 +180,20 @@ export default function CasesPage() {
           )}
         </div>
 
+        {viewMode === 'summary' && (
+          <div className="p-4">
+            <WeeklySummary
+              onSelectDate={(date) => {
+                setSelectedDate(date)
+                setViewMode('calendar')
+              }}
+              onStartQueue={(date) => {
+                setShowQueueForDate(date)
+              }}
+            />
+          </div>
+        )}
+
         {viewMode === 'list' && (
           <div className="p-2">
             {sorted.length === 0 ? (
@@ -205,9 +239,9 @@ export default function CasesPage() {
                                 ? getRelativeDateLabel(patient.suggestedFollowUpDate)
                                 : '未设定复诊'}
                             </div>
-                            {patient.nextContactDate && patient.nextContactDate !== patient.suggestedFollowUpDate && (
+                            {patient.nextContactAt && (
                               <div className="text-xs text-primary-500 mt-0.5">
-                                下次联系：{patient.nextContactDate}
+                                下次联系：{formatDateCN(patient.nextContactAt)}
                               </div>
                             )}
                           </div>

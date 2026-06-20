@@ -3,17 +3,22 @@ import { useStore } from '@/store/useStore'
 import PatientCard from '@/components/patient/PatientCard'
 import ContactScript from '@/components/contact/ContactScript'
 import ContactModal from '@/components/contact/ContactModal'
+import ContactQueue from '@/components/contact/ContactQueue'
 import { getDaysOverdue, formatDate, getRelativeDateLabel } from '@/utils/date'
-import { AlertTriangle, Phone, CheckCircle, Users, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertTriangle, Phone, CheckCircle, Users, ChevronDown, ChevronUp, ListOrdered, LayoutList } from 'lucide-react'
 import type { Patient } from '@/types'
+
+type ViewMode = 'list' | 'queue'
 
 export default function TodayPage() {
   const getOverduePatients = useStore((s) => s.getOverduePatients)
   const getTodayDuePatients = useStore((s) => s.getTodayDuePatients)
   const getFuturePatients = useStore((s) => s.getFuturePatients)
+  const getQueuePatients = useStore((s) => s.getQueuePatients)
   const getPatientLatestStage = useStore((s) => s.getPatientLatestStage)
   const patients = useStore((s) => s.patients)
 
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedScriptPatient, setSelectedScriptPatient] = useState<Patient | null>(null)
   const [selectedContactPatient, setSelectedContactPatient] = useState<Patient | null>(null)
   const [futureExpanded, setFutureExpanded] = useState(false)
@@ -21,6 +26,7 @@ export default function TodayPage() {
   const overduePatients = getOverduePatients()
   const todayPatients = getTodayDuePatients()
   const futurePatients = getFuturePatients()
+  const queuePatients = getQueuePatients()
   const activePatients = patients.filter((p) => p.currentStep !== '已完成')
 
   const statsCards = [
@@ -54,13 +60,46 @@ export default function TodayPage() {
     },
   ]
 
+  const showQueue = viewMode === 'queue'
+
+  if (showQueue) {
+    return <ContactQueue onExit={() => setViewMode('list')} />
+  }
+
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">今日跟进工作台</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {formatDate(new Date().toISOString())} · 先处理超期，再处理到期，最后处理今日计划
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">今日跟进工作台</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {formatDate(new Date().toISOString())} · 先处理超期，再处理到期，最后处理今日计划
+          </p>
+        </div>
+        <div className="flex items-center gap-1 bg-warm-50 rounded-lg p-1">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              !showQueue ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <LayoutList size={14} />
+            列表视图
+          </button>
+          <button
+            onClick={() => setViewMode('queue')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              showQueue ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <ListOrdered size={14} />
+            电话队列
+            {queuePatients.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-primary-100 text-primary-600 rounded-full">
+                {queuePatients.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4 mb-8">

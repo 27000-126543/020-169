@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom'
-import { Copy, MessageSquare, Phone } from 'lucide-react'
+import { Copy, MessageSquare, Phone, Clock } from 'lucide-react'
 import type { Patient } from '@/types'
 import { useStore } from '@/store/useStore'
-import { getDaysOverdue, formatDate } from '@/utils/date'
+import { getDaysOverdue, formatDate, formatDateTimeCN } from '@/utils/date'
 import { getToothLabel } from '@/utils/scripts'
 import { cn } from '@/lib/utils'
 import ContactStatusBadge from './ContactStatusBadge'
@@ -11,11 +11,13 @@ interface PatientCardProps {
   patient: Patient
   onSelect?: () => void
   onContact?: () => void
+  showQueueInfo?: boolean
 }
 
-export default function PatientCard({ patient, onSelect, onContact }: PatientCardProps) {
+export default function PatientCard({ patient, onSelect, onContact, showQueueInfo }: PatientCardProps) {
   const navigate = useNavigate()
   const getPatientRecords = useStore((s) => s.getPatientRecords)
+  const getPatientLatestRecord = useStore((s) => s.getPatientLatestRecord)
 
   const daysOverdue = getDaysOverdue(patient.suggestedFollowUpDate)
   const isOverdue = daysOverdue > 0 && patient.currentStep !== '已完成'
@@ -23,10 +25,11 @@ export default function PatientCard({ patient, onSelect, onContact }: PatientCar
   const today = formatDate(new Date().toISOString())
 
   const records = getPatientRecords(patient.id)
+  const latestRecord = getPatientLatestRecord(patient.id)
   const latestRescheduled = records.find((r) => r.status === '改约' && r.rescheduledFollowUpDate)
 
   const hasFutureNextContact =
-    patient.nextContactDate && patient.nextContactDate > today
+    patient.nextContactAt && new Date(patient.nextContactAt) > new Date()
 
   const handleCopyPhone = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -91,8 +94,11 @@ export default function PatientCard({ patient, onSelect, onContact }: PatientCar
       {(hasFutureNextContact || latestRescheduled) && (
         <div className="mb-3 text-xs space-y-1">
           {hasFutureNextContact && (
-            <div className="text-warm-500">
-              下次联系：<span className="text-primary-600 font-medium">{patient.nextContactDate}</span>
+            <div className="flex items-center gap-1.5 text-warm-500">
+              <Clock size={12} className="text-primary-400" />
+              <span>
+                下次联系：<span className="text-primary-600 font-medium">{formatDateTimeCN(patient.nextContactAt!)}</span>
+              </span>
             </div>
           )}
           {latestRescheduled && (
@@ -100,6 +106,22 @@ export default function PatientCard({ patient, onSelect, onContact }: PatientCar
               改约复诊：<span className="text-accent-600 font-medium">{latestRescheduled.rescheduledFollowUpDate}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {latestRecord?.callNotes && (
+        <div className="mb-3 bg-warm-50 rounded-lg px-3 py-2">
+          <div className="flex items-start gap-2">
+            <MessageSquare size={12} className="text-warm-400 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-warm-600 truncate">{latestRecord.callNotes}</p>
+              {latestRecord.nextContactAt && (
+                <p className="text-[10px] text-primary-500 mt-0.5">
+                  约：{formatDateTimeCN(latestRecord.nextContactAt)}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

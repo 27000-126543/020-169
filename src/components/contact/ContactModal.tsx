@@ -2,42 +2,53 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { CONTACT_STATUSES, type ContactStatus } from '@/types'
 import { useStore } from '@/store/useStore'
-import { getTodayStr } from '@/utils/date'
+import { getTodayStr, formatDate, formatTime, combineDateAndTime } from '@/utils/date'
 
 interface ContactModalProps {
   patientId: string
   patientName: string
   onClose: () => void
+  onComplete?: () => void
 }
 
-export default function ContactModal({ patientId, patientName, onClose }: ContactModalProps) {
+export default function ContactModal({ patientId, patientName, onClose, onComplete }: ContactModalProps) {
   const addContactRecord = useStore((s) => s.addContactRecord)
+  const getPatientLatestRecord = useStore((s) => s.getPatientLatestRecord)
+
+  const latestRecord = getPatientLatestRecord(patientId)
+  const defaultNextDate = latestRecord?.nextContactAt ? formatDate(latestRecord.nextContactAt) : getTodayStr()
+  const defaultNextTime = latestRecord?.nextContactAt ? formatTime(latestRecord.nextContactAt) : '09:30'
 
   const [status, setStatus] = useState<ContactStatus>('已联系')
-  const [callNotes, setCallNotes] = useState('')
-  const [nextContactDate, setNextContactDate] = useState('')
+  const [callNotes, setCallNotes] = useState(latestRecord?.callNotes || '')
+  const [nextContactDate, setNextContactDate] = useState(defaultNextDate)
+  const [nextContactTime, setNextContactTime] = useState(defaultNextTime)
   const [rescheduledFollowUpDate, setRescheduledFollowUpDate] = useState('')
 
-  const showNextContactDate = status === '无人接听' || status === '改约'
+  const showNextContactDateTime = status === '无人接听' || status === '改约'
   const showRescheduledDate = status === '改约'
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const nextContactAt = showNextContactDateTime
+      ? combineDateAndTime(nextContactDate, nextContactTime)
+      : undefined
     addContactRecord({
       patientId,
       status,
       contactDate: getTodayStr(),
       remark: '',
       callNotes,
-      nextContactDate: showNextContactDate ? nextContactDate : undefined,
+      nextContactAt,
       rescheduledFollowUpDate: showRescheduledDate ? rescheduledFollowUpDate : undefined,
     })
     onClose()
+    onComplete?.()
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="relative w-[480px] max-w-full rounded-xl bg-white shadow-xl animate-fade-in">
+      <div className="relative w-[520px] max-w-full rounded-xl bg-white shadow-xl animate-fade-in">
         <button
           type="button"
           onClick={onClose}
@@ -87,31 +98,43 @@ export default function ContactModal({ patientId, patientName, onClose }: Contac
               <textarea
                 value={callNotes}
                 onChange={(e) => setCallNotes(e.target.value)}
-                placeholder="通话备注，比如：无人接听下午再打、患者同意明天复诊..."
+                placeholder="通话备注，比如：无人接听下午15:30再打、患者同意明天复诊..."
                 rows={3}
                 className="w-full rounded-lg border border-warm-200 px-3 py-2 text-sm text-warm-500 placeholder-warm-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 resize-none"
               />
             </div>
 
-            {showNextContactDate && (
+            {showNextContactDateTime && (
               <div>
                 <label className="block text-sm font-medium text-warm-500 mb-2">
-                  下次联系日期
+                  下次联系时间
                 </label>
-                <input
-                  type="date"
-                  value={nextContactDate}
-                  onChange={(e) => setNextContactDate(e.target.value)}
-                  className="w-full rounded-lg border border-warm-200 px-3 py-2 text-sm text-warm-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
-                />
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="date"
+                      value={nextContactDate}
+                      onChange={(e) => setNextContactDate(e.target.value)}
+                      className="w-full rounded-lg border border-warm-200 px-3 py-2 text-sm text-warm-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <input
+                      type="time"
+                      value={nextContactTime}
+                      onChange={(e) => setNextContactTime(e.target.value)}
+                      className="w-full rounded-lg border border-warm-200 px-3 py-2 text-sm text-warm-500 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
             {showRescheduledDate && (
               <div>
                 <label className="block text-sm font-medium text-warm-500 mb-2">
-                  新复诊日期
-                </label>
+                新复诊日期
+              </label>
                 <input
                   type="date"
                   value={rescheduledFollowUpDate}

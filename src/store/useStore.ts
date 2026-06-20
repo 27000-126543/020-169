@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Patient, TreatmentStage, ContactRecord, TreatmentStep, ContactStatus } from '@/types'
-import { getDaysOverdue, formatDate } from '@/utils/date'
+import { getDaysOverdue, formatDate, isOverdue } from '@/utils/date'
 
 const STORAGE_KEY = 'root-canal-tracker'
 
@@ -29,10 +29,15 @@ function generateSeedData(): StoreData {
   const fiveDaysLater = new Date(now.getTime() + 5 * 86400000).toISOString().split('T')[0]
   const yesterday = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
 
+  const todayMorning = new Date()
+  todayMorning.setHours(9, 30, 0, 0)
+  const todayAfternoon = new Date()
+  todayAfternoon.setHours(15, 30, 0, 0)
+
   const patients: Patient[] = [
     { id: 'seed1', name: '王建华', phone: '13800138001', tooth: '16', currentStep: '已封药待复诊', contactStatus: '待联系', suggestedFollowUpDate: fiveDaysAgo, createdAt: sevenDaysAgo, updatedAt: threeDaysAgo },
     { id: 'seed2', name: '李美玲', phone: '13900139002', tooth: '36', currentStep: '已预备待充填', contactStatus: '待联系', suggestedFollowUpDate: threeDaysAgo, createdAt: sevenDaysAgo, updatedAt: threeDaysAgo },
-    { id: 'seed5', name: '刘大明', phone: '13500135005', tooth: '14', currentStep: '开髓引流', contactStatus: '无人接听', suggestedFollowUpDate: yesterday, nextContactDate: today, createdAt: threeDaysAgo, updatedAt: yesterday },
+    { id: 'seed5', name: '刘大明', phone: '13500135005', tooth: '14', currentStep: '开髓引流', contactStatus: '无人接听', suggestedFollowUpDate: yesterday, nextContactAt: todayAfternoon.toISOString(), createdAt: threeDaysAgo, updatedAt: yesterday },
     { id: 'seed6', name: '赵雅芳', phone: '13400134006', tooth: '26', currentStep: '已封药待复诊', contactStatus: '待联系', suggestedFollowUpDate: today, createdAt: fiveDaysAgo, updatedAt: twoDaysLater },
     { id: 'seed7', name: '钱建国', phone: '13300133007', tooth: '46', currentStep: '已预备待充填', contactStatus: '待联系', suggestedFollowUpDate: today, createdAt: fiveDaysAgo, updatedAt: twoDaysLater },
     { id: 'seed3', name: '张伟', phone: '13700137003', tooth: '24', currentStep: '已封药待复诊', contactStatus: '改约', suggestedFollowUpDate: twoDaysLater, createdAt: fiveDaysAgo, updatedAt: yesterday },
@@ -63,8 +68,8 @@ function generateSeedData(): StoreData {
   ]
 
   const contactRecords: ContactRecord[] = [
-    { id: 'cr1', patientId: 'seed3', status: '改约', contactDate: yesterday, remark: '', callNotes: '患者出差，改约到后天', nextContactDate: twoDaysLater, rescheduledFollowUpDate: twoDaysLater },
-    { id: 'cr2', patientId: 'seed5', status: '无人接听', contactDate: yesterday, remark: '', callNotes: '上午未接，下午再打', nextContactDate: today },
+    { id: 'cr1', patientId: 'seed3', status: '改约', contactDate: yesterday, remark: '', callNotes: '患者出差，改约到后天', nextContactAt: new Date(new Date(twoDaysLater).setHours(10, 0, 0, 0)).toISOString(), rescheduledFollowUpDate: twoDaysLater },
+    { id: 'cr2', patientId: 'seed5', status: '无人接听', contactDate: yesterday, remark: '', callNotes: '上午未接，下午15:30再打', nextContactAt: todayAfternoon.toISOString() },
   ]
 
   return { patients, treatmentStages, contactRecords }
@@ -91,12 +96,20 @@ interface RootCanalStore extends StoreData {
   getTodayDuePatients: () => Patient[]
   getFuturePatients: () => Patient[]
   getPendingContactToday: () => Patient[]
+  getQueuePatients: () => Patient[]
   getPatientsByStep: (step: TreatmentStep) => Patient[]
   getPatientsByDate: (date: string) => Patient[]
   getPatientsByDateRange: (startDate: string, endDate: string) => Patient[]
   getPatientStages: (patientId: string) => TreatmentStage[]
   getPatientLatestStage: (patientId: string) => TreatmentStage | undefined
   getPatientRecords: (patientId: string) => ContactRecord[]
+  getPatientLatestRecord: (patientId: string) => ContactRecord | undefined
+  getWeeklySummary: () => Array<{
+    date: string
+    total: number
+    overdue: number
+    rescheduled: number
+  }>
 
   exportData: () => string
   importData: (json: string) => boolean
@@ -161,7 +174,7 @@ export const useStore = create<RootCanalStore>((set, get) => ({
                 currentStep: stageData.step,
                 suggestedFollowUpDate: stageData.suggestedFollowUpDate || p.suggestedFollowUpDate,
                 contactStatus: '待联系' as ContactStatus,
-                nextContactDate: undefined,
+                nextContactAt: undefined,
                 updatedAt: new Date().toISOString(),
               }
             : p
@@ -180,12 +193,14 @@ export const useStore = create<RootCanalStore>((set, get) => ({
         contactStatus: recordData.status,
         updatedAt: new Date().toISOString(),
       }
-      if (recordData.nextContactDate) {
-        patientUpdates.nextContactDate = recordData.nextContactDate
+      if (recordData.nextContactAt) {
+        patientUpdates.nextContactAt = recordData.nextContactAt
       }
       if (recordData.rescheduledFollowUpDate) {
         patientUpdates.suggestedFollowUpDate = recordData.rescheduledFollowUpDate
-        patientUpdates.nextContactDate = recordData.rescheduledFollowUpDate
+        if (recordData.nextContactAt) {
+          patientUpdates.nextContactAt = recordData.nextContactAt
+        }
       }
       const newState = {
         contactRecords: [...state.contactRecords, record],
@@ -200,32 +215,82 @@ export const useStore = create<RootCanalStore>((set, get) => ({
 
   getOverduePatients: () => {
     const { patients } = get()
-    const today = formatDate(new Date().toISOString())
+    const now = new Date()
     return patients
       .filter((p) => {
         if (p.currentStep === '已完成') return false
         const days = getDaysOverdue(p.suggestedFollowUpDate)
-        return days > 0 && (!p.nextContactDate || p.nextContactDate <= today)
+        const hasFutureContact = p.nextContactAt && new Date(p.nextContactAt) > now
+        return days > 0 && !hasFutureContact
       })
       .sort((a, b) => getDaysOverdue(b.suggestedFollowUpDate) - getDaysOverdue(a.suggestedFollowUpDate))
   },
 
   getTodayDuePatients: () => {
     const { patients } = get()
-    const today = formatDate(new Date().toISOString())
+    const now = new Date()
+    const todayEnd = new Date()
+    todayEnd.setHours(23, 59, 59, 999)
     return patients
       .filter((p) => {
         if (p.currentStep === '已完成') return false
         const days = getDaysOverdue(p.suggestedFollowUpDate)
-        const shouldContactToday = days === 0 ||
-          (p.nextContactDate && p.nextContactDate <= today && p.contactStatus !== '已联系')
+        const hasTodayContact = p.nextContactAt &&
+          new Date(p.nextContactAt) <= todayEnd &&
+          new Date(p.nextContactAt) >= new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const shouldContactToday = days === 0 || (hasTodayContact && p.contactStatus !== '已联系')
         return shouldContactToday && days <= 0
       })
       .sort((a, b) => {
+        const aTime = a.nextContactAt ? new Date(a.nextContactAt).getTime() : 0
+        const bTime = b.nextContactAt ? new Date(b.nextContactAt).getTime() : 0
+        if (aTime !== 0 && bTime !== 0) return aTime - bTime
+        if (aTime !== 0) return -1
+        if (bTime !== 0) return 1
         const aPriority = a.contactStatus === '待联系' ? 0 : 1
         const bPriority = b.contactStatus === '待联系' ? 0 : 1
         return aPriority - bPriority
       })
+  },
+
+  getQueuePatients: () => {
+    const { patients } = get()
+    const now = new Date()
+    const todayEnd = new Date()
+    todayEnd.setHours(23, 59, 59, 999)
+
+    const withPriority = patients
+      .filter((p) => p.currentStep !== '已完成')
+      .map((p) => {
+        let priority = 0
+        let sortTime = 0
+
+        const daysOverdue = getDaysOverdue(p.suggestedFollowUpDate)
+        const hasNextContact = p.nextContactAt && new Date(p.nextContactAt) <= todayEnd
+
+        if (daysOverdue > 0) {
+          priority = 1
+          sortTime = new Date(p.suggestedFollowUpDate).getTime()
+        } else if (hasNextContact) {
+          priority = 2
+          sortTime = new Date(p.nextContactAt!).getTime()
+        } else if (daysOverdue === 0) {
+          priority = 3
+          sortTime = new Date(p.suggestedFollowUpDate).getTime()
+        } else {
+          priority = 99
+          return { ...p, priority, sortTime: Infinity }
+        }
+
+        return { ...p, priority, sortTime }
+      })
+      .filter((p) => p.priority <= 3)
+      .sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority
+        return a.sortTime - b.sortTime
+      })
+
+    return withPriority
   },
 
   getFuturePatients: () => {
@@ -245,6 +310,38 @@ export const useStore = create<RootCanalStore>((set, get) => ({
     const overdue = get().getOverduePatients()
     const today = get().getTodayDuePatients()
     return [...overdue, ...today]
+  },
+
+  getPatientLatestRecord: (patientId) => {
+    return get().getPatientRecords(patientId)[0]
+  },
+
+  getWeeklySummary: () => {
+    const { patients, contactRecords } = get()
+    const result = []
+    const today = new Date()
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today)
+      d.setDate(today.getDate() + i)
+      const dateStr = formatDate(d.toISOString())
+
+      const dayPatients = patients.filter(
+        (p) => p.currentStep !== '已完成' && p.suggestedFollowUpDate === dateStr
+      )
+      const overdueCount = dayPatients.filter((p) => isOverdue(p.suggestedFollowUpDate)).length
+      const rescheduledCount = contactRecords.filter(
+        (r) => r.rescheduledFollowUpDate === dateStr
+      ).length
+
+      result.push({
+        date: dateStr,
+        total: dayPatients.length,
+        overdue: overdueCount,
+        rescheduled: rescheduledCount,
+      })
+    }
+    return result
   },
 
   getPatientsByStep: (step) => {
