@@ -96,7 +96,7 @@ interface RootCanalStore extends StoreData {
   getTodayDuePatients: () => Patient[]
   getFuturePatients: () => Patient[]
   getPendingContactToday: () => Patient[]
-  getQueuePatients: () => Patient[]
+  getQueuePatients: (targetDate?: string) => Patient[]
   getPatientsByStep: (step: TreatmentStep) => Patient[]
   getPatientsByDate: (date: string) => Patient[]
   getPatientsByDateRange: (startDate: string, endDate: string) => Patient[]
@@ -104,6 +104,7 @@ interface RootCanalStore extends StoreData {
   getPatientLatestStage: (patientId: string) => TreatmentStage | undefined
   getPatientRecords: (patientId: string) => ContactRecord[]
   getPatientLatestRecord: (patientId: string) => ContactRecord | undefined
+  hasContactOnDate: (patientId: string, date: string) => boolean
   getWeeklySummary: () => Array<{
     date: string
     total: number
@@ -253,33 +254,51 @@ export const useStore = create<RootCanalStore>((set, get) => ({
       })
   },
 
-  getQueuePatients: () => {
+  getQueuePatients: (targetDate) => {
     const { patients } = get()
-    const now = new Date()
-    const todayEnd = new Date()
-    todayEnd.setHours(23, 59, 59, 999)
+    const target = targetDate ? new Date(targetDate) : new Date()
+    const targetDayStart = new Date(target.getFullYear(), target.getMonth(), target.getDate())
+    const targetDayEnd = new Date(targetDayStart)
+    targetDayEnd.setHours(23, 59, 59, 999)
+    const todayStart = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())
+    const isTargetToday = targetDayStart.getTime() === todayStart.getTime()
 
     const withPriority = patients
-      .filter((p) => p.currentStep !== '已完成')
+      .filter((p) => {
+        if (p.currentStep === '已完成') return false
+        if (get().hasContactOnDate(p.id, formatDate(targetDayStart.toISOString()))) return false
+        return true
+      })
       .map((p) => {
         let priority = 0
         let sortTime = 0
+        let isIncluded = false
 
-        const daysOverdue = getDaysOverdue(p.suggestedFollowUpDate)
-        const hasNextContact = p.nextContactAt && new Date(p.nextContactAt) <= todayEnd
+        const daysOverdue = Math.floor(
+          (targetDayStart.getTime() - new Date(p.suggestedFollowUpDate).getTime()) / (1000 * 60 * 60 * 24)
+        )
+        const hasNextContactOnTarget =
+          p.nextContactAt &&
+          new Date(p.nextContactAt) >= targetDayStart &&
+          new Date(p.nextContactAt) <= targetDayEnd
+        const isFollowUpOnTarget = p.suggestedFollowUpDate === formatDate(targetDayStart.toISOString())
 
-        if (daysOverdue > 0) {
+        if (isTargetToday && daysOverdue > 0) {
           priority = 1
           sortTime = new Date(p.suggestedFollowUpDate).getTime()
-        } else if (hasNextContact) {
+          isIncluded = true
+        } else if (hasNextContactOnTarget) {
           priority = 2
           sortTime = new Date(p.nextContactAt!).getTime()
-        } else if (daysOverdue === 0) {
+          isIncluded = true
+        } else if (isFollowUpOnTarget) {
           priority = 3
           sortTime = new Date(p.suggestedFollowUpDate).getTime()
-        } else {
-          priority = 99
-          return { ...p, priority, sortTime: Infinity }
+          isIncluded = true
+        }
+
+        if (!isIncluded) {
+          return { ...p, priority: 99, sortTime: Infinity }
         }
 
         return { ...p, priority, sortTime }
@@ -291,6 +310,13 @@ export const useStore = create<RootCanalStore>((set, get) => ({
       })
 
     return withPriority
+  },
+
+  hasContactOnDate: (patientId, date) => {
+    const { contactRecords } = get()
+    return contactRecords.some(
+      (r) => r.patientId === patientId && r.contactDate === date && r.status === '已联系'
+    )
   },
 
   getFuturePatients: () => {

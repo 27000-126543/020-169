@@ -5,6 +5,7 @@ import PatientForm from '@/components/patient/PatientForm'
 import ContactStatusBadge from '@/components/patient/ContactStatusBadge'
 import FollowUpCalendar from '@/components/calendar/FollowUpCalendar'
 import WeeklySummary from '@/components/calendar/WeeklySummary'
+import DailySchedule from '@/components/calendar/DailySchedule'
 import ContactQueue from '@/components/contact/ContactQueue'
 import { getToothLabel } from '@/utils/scripts'
 import {
@@ -15,9 +16,9 @@ import {
   formatDateCN,
 } from '@/utils/date'
 import type { TreatmentStep, ContactStatus, Patient } from '@/types'
-import { Plus, Search, List, Calendar, CalendarDays, ChevronRight } from 'lucide-react'
+import { Plus, Search, List, Calendar, CalendarDays, ChevronRight, CalendarClock } from 'lucide-react'
 
-type ViewMode = 'list' | 'calendar' | 'week' | 'summary'
+type ViewMode = 'list' | 'calendar' | 'week' | 'summary' | 'daily'
 
 export default function CasesPage() {
   const patients = useStore((s) => s.patients)
@@ -76,6 +77,7 @@ export default function CasesPage() {
   if (showQueueForDate) {
     return (
       <ContactQueue
+        targetDate={showQueueForDate}
         onExit={() => setShowQueueForDate(null)}
       />
     )
@@ -110,6 +112,15 @@ export default function CasesPage() {
             >
               <CalendarDays size={14} />
               周排班摘要
+            </button>
+            <button
+              onClick={() => setViewMode('daily')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'daily' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <CalendarClock size={14} />
+              日视图
             </button>
             <button
               onClick={() => setViewMode('list')}
@@ -181,15 +192,43 @@ export default function CasesPage() {
         </div>
 
         {viewMode === 'summary' && (
-          <div className="p-4">
+          <div className="p-4 space-y-6">
             <WeeklySummary
               onSelectDate={(date) => {
                 setSelectedDate(date)
-                setViewMode('calendar')
+                setViewMode('daily')
               }}
               onStartQueue={(date) => {
                 setShowQueueForDate(date)
               }}
+            />
+            <DailySchedule
+              date={selectedDate}
+              onStartQueue={(date) => setShowQueueForDate(date)}
+            />
+          </div>
+        )}
+
+        {viewMode === 'daily' && (
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-4">
+              <label className="text-sm text-gray-600">选择日期：</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="px-3 py-2 border border-warm-200 rounded-lg text-sm focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
+              />
+              <button
+                onClick={() => setSelectedDate(formatDate(new Date().toISOString()))}
+                className="text-sm text-primary-500 hover:text-primary-600"
+              >
+                回到今天
+              </button>
+            </div>
+            <DailySchedule
+              date={selectedDate}
+              onStartQueue={(date) => setShowQueueForDate(date)}
             />
           </div>
         )}

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useStore } from '@/store/useStore'
 import ContactScript from '@/components/contact/ContactScript'
-import ContactModal from '@/components/contact/ContactModal'
+import ContactResultPanel from '@/components/contact/ContactResultPanel'
 import {
   AlertTriangle,
   Phone,
@@ -10,34 +10,54 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  Calendar,
 } from 'lucide-react'
 import type { Patient } from '@/types'
-import { formatDateTimeCN, getDaysOverdue } from '@/utils/date'
+import { formatDateTimeCN, formatDateCN, formatDate, getDaysOverdue, isToday } from '@/utils/date'
 import { getToothLabel } from '@/utils/scripts'
 
 type QueuePatient = Patient & { priority?: number; sortTime?: number }
 
 interface ContactQueueProps {
   startIndex?: number
+  targetDate?: string
   onExit: () => void
 }
 
-export default function ContactQueue({ startIndex = 0, onExit }: ContactQueueProps) {
-  const queue = useStore((s) => s.getQueuePatients()) as QueuePatient[]
+export default function ContactQueue({ startIndex = 0, targetDate, onExit }: ContactQueueProps) {
+  const rawQueue = useStore((s) => s.getQueuePatients(targetDate))
   const getPatientLatestStage = useStore((s) => s.getPatientLatestStage)
   const getPatientLatestRecord = useStore((s) => s.getPatientLatestRecord)
+  const hasContactOnDate = useStore((s) => s.hasContactOnDate)
+
+  const dateLabel = targetDate ? formatDateCN(targetDate) : '今日'
+  const isDateToday = !targetDate || isToday(targetDate)
+
+  const queue = useMemo(() => {
+    const dateStr = targetDate || formatDate(new Date().toISOString())
+    return rawQueue.filter((p) => !hasContactOnDate(p.id, dateStr)) as QueuePatient[]
+  }, [rawQueue, targetDate, hasContactOnDate])
 
   const [currentIndex, setCurrentIndex] = useState(startIndex)
   const [showScript, setShowScript] = useState(false)
-  const [showContactModal, setShowContactModal] = useState(false)
+  const [showResultPanel, setShowResultPanel] = useState(false)
 
   useEffect(() => {
     if (currentIndex >= queue.length && queue.length > 0) {
       setCurrentIndex(queue.length - 1)
     }
+    if (currentIndex >= queue.length && queue.length === 0) {
+      setCurrentIndex(0)
+    }
   }, [queue.length, currentIndex])
 
-  const currentPatient = queue[currentIndex] as QueuePatient
+  useEffect(() => {
+    setCurrentIndex(0)
+    setShowScript(false)
+    setShowResultPanel(false)
+  }, [targetDate])
+
+  const currentPatient = queue[currentIndex] as QueuePatient | undefined
 
   if (queue.length === 0) {
     return (
@@ -46,8 +66,8 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
           <div className="w-20 h-20 rounded-full bg-success-50 flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={36} className="text-success-400" />
           </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">今日电话队列已完成</h3>
-          <p className="text-gray-500 mb-6">没有需要联系的患者了</p>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">{dateLabel}电话队列已完成</h3>
+          <p className="text-gray-500 mb-6">当天所有需要联系的患者都已处理完毕</p>
           <button
             onClick={onExit}
             className="px-6 py-2.5 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
@@ -63,7 +83,7 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1)
       setShowScript(false)
-      setShowContactModal(false)
+      setShowResultPanel(false)
     }
   }
 
@@ -71,14 +91,22 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
     if (currentIndex < queue.length - 1) {
       setCurrentIndex(currentIndex + 1)
       setShowScript(false)
-      setShowContactModal(false)
+      setShowResultPanel(false)
     } else {
       onExit()
     }
   }
 
   function handleContactComplete() {
-    handleNext()
+    setShowResultPanel(false)
+    setShowScript(false)
+    setTimeout(() => {
+      if (currentIndex < queue.length - 1) {
+        setCurrentIndex(currentIndex + 1)
+      } else {
+        onExit()
+      }
+    }, 100)
   }
 
   function getPriorityLabel(p: Patient & { priority?: number }) {
@@ -96,12 +124,20 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
               onClick={onExit}
               className="text-gray-500 hover:text-gray-700 transition-colors"
             >
-              ← 返回工作台
+              ← 返回
             </button>
             <div className="h-5 w-px bg-warm-200" />
             <div className="flex items-center gap-2">
               <Phone size={18} className="text-primary-500" />
-              <h2 className="text-lg font-bold text-gray-800">电话跟进队列</h2>
+              <h2 className="text-lg font-bold text-gray-800">
+                {dateLabel}电话跟进队列
+              </h2>
+              {!isDateToday && (
+                <span className="inline-flex items-center gap-1 text-xs bg-warm-100 text-warm-500 px-2 py-0.5 rounded-full">
+                  <Calendar size={10} />
+                  {targetDate}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -174,7 +210,7 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
                   return null
                 })()}
 
-                {!showScript && !showContactModal && (
+                {!showScript && !showResultPanel && (
                   <div className="grid grid-cols-3 gap-3">
                     <button
                       onClick={() => setShowScript(true)}
@@ -184,7 +220,7 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
                       <span className="text-sm font-medium">查看话术</span>
                     </button>
                     <button
-                      onClick={() => setShowContactModal(true)}
+                      onClick={() => setShowResultPanel(true)}
                       className="flex flex-col items-center gap-2 py-4 rounded-xl bg-success-50 hover:bg-success-100 text-success-600 transition-colors"
                     >
                       <Phone size={24} />
@@ -201,7 +237,7 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
                 )}
               </div>
 
-              {showScript && (
+              {showScript && !showResultPanel && (
                 <div className="animate-fade-in">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-gray-700">沟通话术</h4>
@@ -224,7 +260,7 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
                     <button
                       onClick={() => {
                         setShowScript(false)
-                        setShowContactModal(true)
+                        setShowResultPanel(true)
                       }}
                       className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-sm"
                     >
@@ -232,6 +268,16 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
                     </button>
                   </div>
                 </div>
+              )}
+
+              {showResultPanel && currentPatient && (
+                <ContactResultPanel
+                  patientId={currentPatient.id}
+                  patientName={currentPatient.name}
+                  defaultDate={targetDate}
+                  onClose={() => setShowResultPanel(false)}
+                  onComplete={handleContactComplete}
+                />
               )}
             </div>
           )}
@@ -248,13 +294,13 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
             <ChevronLeft size={18} />
             上一位
           </button>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {queue.map((_, idx) => (
               <div
                 key={idx}
-                className={`w-2 h-2 rounded-full transition-colors ${
+                className={`w-2.5 h-2.5 rounded-full transition-colors ${
                   idx === currentIndex
-                    ? 'bg-primary-500'
+                    ? 'bg-primary-500 scale-125'
                     : idx < currentIndex
                     ? 'bg-success-400'
                     : 'bg-warm-200'
@@ -271,15 +317,6 @@ export default function ContactQueue({ startIndex = 0, onExit }: ContactQueuePro
           </button>
         </div>
       </div>
-
-      {showContactModal && currentPatient && (
-        <ContactModal
-          patientId={currentPatient.id}
-          patientName={currentPatient.name}
-          onClose={() => setShowContactModal(false)}
-          onComplete={handleContactComplete}
-        />
-      )}
     </div>
   )
 }
