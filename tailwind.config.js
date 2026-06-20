@@ -1,0 +1,76 @@
+/** @type {import('tailwindcss').Config} */
+
+export default {
+  darkMode: "class",
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    container: {
+      center: true,
+    },
+    extend: {
+      colors: {
+        primary: {
+          50: '#E6F5F5',
+          100: '#B3E0E1',
+          200: '#80CCCE',
+          300: '#4DB8BA',
+          400: '#26A8AB',
+          500: '#0D7377',
+          600: '#0B6164',
+          700: '#094F51',
+          800: '#073D3F',
+          900: '#052B2C',
+        },
+        accent: {
+          50: '#FEF3E8',
+          100: '#FCDFC0',
+          200: '#FACB98',
+          300: '#F8B770',
+          400: '#F0A052',
+          500: '#E8873A',
+          600: '#C76E2E',
+          700: '#A65722',
+          800: '#854016',
+          900: '#64290A',
+        },
+        danger: {
+          50: '#FCE8E8',
+          100: '#F5BFBF',
+          200: '#EE9696',
+          300: '#E76D6D',
+          400: '#E05252',
+          500: '#D43D3D',
+          600: '#B03232',
+          700: '#8C2727',
+          800: '#681C1C',
+          900: '#441111',
+        },
+        success: {
+          50: '#EDF4EF',
+          100: '#C8DCCD',
+          200: '#A3C4AB',
+          300: '#7EAC89',
+          400: '#6B9E78',
+          500: '#589066',
+          600: '#477853',
+          700: '#366040',
+          800: '#25482D',
+          900: '#14301A',
+        },
+        warm: {
+          50: '#FAF8F5',
+          100: '#F5F0EA',
+          200: '#EBE3D8',
+          300: '#E0D5C6',
+          400: '#D5C7B4',
+          500: '#C9B9A2',
+        },
+      },
+      fontFamily: {
+        sans: ['"Noto Sans SC"', '"DM Sans"', 'sans-serif'],
+        mono: ['"DM Sans"', 'monospace'],
+      },
+    },
+  },
+  plugins: [],
+};
