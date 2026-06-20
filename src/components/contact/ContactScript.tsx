@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Copy, Check } from 'lucide-react'
-import type { TreatmentStep } from '@/types'
-import { generateContactScript } from '@/utils/scripts'
+import type { TreatmentStep, TreatmentStage } from '@/types'
+import { generateContactScript, getToothChineseLabel } from '@/utils/scripts'
 
 interface ContactScriptProps {
   patientName: string
   step: TreatmentStep
   suggestedFollowUpDate: string
   daysAgo: number
+  tooth: string
+  latestStage?: TreatmentStage
 }
 
 export default function ContactScript({
@@ -15,10 +17,19 @@ export default function ContactScript({
   step,
   suggestedFollowUpDate,
   daysAgo,
+  tooth,
+  latestStage,
 }: ContactScriptProps) {
   const [copied, setCopied] = useState(false)
 
-  const scriptText = generateContactScript(step, patientName, daysAgo, suggestedFollowUpDate)
+  const scriptText = generateContactScript({
+    step,
+    patientName,
+    daysAgo,
+    followUpDate: suggestedFollowUpDate,
+    tooth,
+    latestStage,
+  })
 
   async function handleCopy() {
     try {
@@ -40,6 +51,28 @@ export default function ContactScript({
   return (
     <div className="rounded-lg bg-warm-100 p-4">
       <p className="italic text-sm leading-relaxed text-gray-700">{scriptText}</p>
+
+      <div className="mt-3 rounded-md bg-white/70 p-3 text-xs text-warm-500">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <span className="text-warm-400">牙位：</span>
+            <span className="font-medium">{getToothChineseLabel(tooth)}</span>
+          </div>
+          <div>
+            <span className="text-warm-400">封药材料：</span>
+            <span className="font-medium">{latestStage?.sealingMaterial || '无'}</span>
+          </div>
+          <div>
+            <span className="text-warm-400">上次疼痛：</span>
+            <span className="font-medium">{latestStage?.painLevel || '-'}</span>
+          </div>
+          <div>
+            <span className="text-warm-400">医嘱：</span>
+            <span className="font-medium">{latestStage?.doctorInstructions || '无'}</span>
+          </div>
+        </div>
+      </div>
+
       <button
         onClick={handleCopy}
         className="mt-3 flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-xs text-gray-600 shadow-sm hover:bg-warm-50"

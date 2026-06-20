@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Patient, TreatmentStage, ContactRecord, TreatmentStep, ContactStatus } from '@/types'
-import { getDaysOverdue } from '@/utils/date'
+import { getDaysOverdue, formatDate } from '@/utils/date'
 
 const STORAGE_KEY = 'root-canal-tracker'
 
@@ -25,15 +25,19 @@ function generateSeedData(): StoreData {
   const fiveDaysAgo = new Date(now.getTime() - 5 * 86400000).toISOString().split('T')[0]
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString().split('T')[0]
   const twoDaysLater = new Date(now.getTime() + 2 * 86400000).toISOString().split('T')[0]
+  const threeDaysLater = new Date(now.getTime() + 3 * 86400000).toISOString().split('T')[0]
   const fiveDaysLater = new Date(now.getTime() + 5 * 86400000).toISOString().split('T')[0]
   const yesterday = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
 
   const patients: Patient[] = [
     { id: 'seed1', name: '王建华', phone: '13800138001', tooth: '16', currentStep: '已封药待复诊', contactStatus: '待联系', suggestedFollowUpDate: fiveDaysAgo, createdAt: sevenDaysAgo, updatedAt: threeDaysAgo },
     { id: 'seed2', name: '李美玲', phone: '13900139002', tooth: '36', currentStep: '已预备待充填', contactStatus: '待联系', suggestedFollowUpDate: threeDaysAgo, createdAt: sevenDaysAgo, updatedAt: threeDaysAgo },
-    { id: 'seed3', name: '张伟', phone: '13700137003', tooth: '24', currentStep: '已封药待复诊', contactStatus: '已联系', suggestedFollowUpDate: twoDaysLater, createdAt: fiveDaysAgo, updatedAt: yesterday },
+    { id: 'seed5', name: '刘大明', phone: '13500135005', tooth: '14', currentStep: '开髓引流', contactStatus: '无人接听', suggestedFollowUpDate: yesterday, nextContactDate: today, createdAt: threeDaysAgo, updatedAt: yesterday },
+    { id: 'seed6', name: '赵雅芳', phone: '13400134006', tooth: '26', currentStep: '已封药待复诊', contactStatus: '待联系', suggestedFollowUpDate: today, createdAt: fiveDaysAgo, updatedAt: twoDaysLater },
+    { id: 'seed7', name: '钱建国', phone: '13300133007', tooth: '46', currentStep: '已预备待充填', contactStatus: '待联系', suggestedFollowUpDate: today, createdAt: fiveDaysAgo, updatedAt: twoDaysLater },
+    { id: 'seed3', name: '张伟', phone: '13700137003', tooth: '24', currentStep: '已封药待复诊', contactStatus: '改约', suggestedFollowUpDate: twoDaysLater, createdAt: fiveDaysAgo, updatedAt: yesterday },
+    { id: 'seed8', name: '孙丽华', phone: '13200132008', tooth: '37', currentStep: '已充填待冠修复', contactStatus: '待联系', suggestedFollowUpDate: threeDaysLater, createdAt: sevenDaysAgo, updatedAt: yesterday },
     { id: 'seed4', name: '陈晓红', phone: '13600136004', tooth: '47', currentStep: '已充填待冠修复', contactStatus: '待联系', suggestedFollowUpDate: fiveDaysLater, createdAt: sevenDaysAgo, updatedAt: yesterday },
-    { id: 'seed5', name: '刘大明', phone: '13500135005', tooth: '14', currentStep: '开髓引流', contactStatus: '待联系', suggestedFollowUpDate: yesterday, createdAt: threeDaysAgo, updatedAt: threeDaysAgo },
   ]
 
   const treatmentStages: TreatmentStage[] = [
@@ -49,10 +53,18 @@ function generateSeedData(): StoreData {
     { id: 'ts10', patientId: 'seed4', step: '已预备待充填', date: threeDaysAgo, suggestedFollowUpDate: yesterday, notes: '根管预备完成', sealingMaterial: '', painLevel: '无痛', doctorInstructions: '', createdAt: threeDaysAgo },
     { id: 'ts11', patientId: 'seed4', step: '已充填待冠修复', date: yesterday, suggestedFollowUpDate: fiveDaysLater, notes: '根管充填完成', sealingMaterial: '', painLevel: '无痛', doctorInstructions: '建议2周内安排牙冠修复', createdAt: yesterday },
     { id: 'ts12', patientId: 'seed5', step: '开髓引流', date: threeDaysAgo, suggestedFollowUpDate: yesterday, notes: '急性根尖周脓肿', sealingMaterial: '', painLevel: '剧烈', doctorInstructions: '引流后观察，复诊封药', createdAt: threeDaysAgo },
+    { id: 'ts13', patientId: 'seed6', step: '开髓引流', date: fiveDaysAgo, suggestedFollowUpDate: twoDaysLater, notes: '右上6牙髓炎', sealingMaterial: '', painLevel: '中度', doctorInstructions: '', createdAt: fiveDaysAgo },
+    { id: 'ts14', patientId: 'seed6', step: '已封药待复诊', date: twoDaysLater, suggestedFollowUpDate: today, notes: '封药情况良好', sealingMaterial: '氢氧化钙', painLevel: '轻微', doctorInstructions: '今日复诊预备', createdAt: twoDaysLater },
+    { id: 'ts15', patientId: 'seed7', step: '开髓引流', date: fiveDaysAgo, suggestedFollowUpDate: twoDaysLater, notes: '', sealingMaterial: '', painLevel: '剧烈', doctorInstructions: '', createdAt: fiveDaysAgo },
+    { id: 'ts16', patientId: 'seed7', step: '已封药待复诊', date: twoDaysLater, suggestedFollowUpDate: today, notes: '', sealingMaterial: '甲醛甲酚', painLevel: '无痛', doctorInstructions: '', createdAt: twoDaysLater },
+    { id: 'ts17', patientId: 'seed8', step: '开髓引流', date: sevenDaysAgo, suggestedFollowUpDate: fiveDaysAgo, notes: '', sealingMaterial: '', painLevel: '中度', doctorInstructions: '', createdAt: sevenDaysAgo },
+    { id: 'ts18', patientId: 'seed8', step: '已封药待复诊', date: fiveDaysAgo, suggestedFollowUpDate: threeDaysLater, notes: '', sealingMaterial: '氢氧化钙', painLevel: '轻微', doctorInstructions: '', createdAt: fiveDaysAgo },
+    { id: 'ts19', patientId: 'seed8', step: '已充填待冠修复', date: yesterday, suggestedFollowUpDate: threeDaysLater, notes: '根充完成，X线显示恰填', sealingMaterial: '', painLevel: '无痛', doctorInstructions: '注意勿咬硬物，建议做冠保护', createdAt: yesterday },
   ]
 
   const contactRecords: ContactRecord[] = [
-    { id: 'cr1', patientId: 'seed3', status: '已联系', contactDate: yesterday, remark: '' },
+    { id: 'cr1', patientId: 'seed3', status: '改约', contactDate: yesterday, remark: '', callNotes: '患者出差，改约到后天', nextContactDate: twoDaysLater, rescheduledFollowUpDate: twoDaysLater },
+    { id: 'cr2', patientId: 'seed5', status: '无人接听', contactDate: yesterday, remark: '', callNotes: '上午未接，下午再打', nextContactDate: today },
   ]
 
   return { patients, treatmentStages, contactRecords }
@@ -76,9 +88,14 @@ interface RootCanalStore extends StoreData {
   addContactRecord: (record: Omit<ContactRecord, 'id'>) => void
 
   getOverduePatients: () => Patient[]
-  getTodayContactList: () => Patient[]
+  getTodayDuePatients: () => Patient[]
+  getFuturePatients: () => Patient[]
+  getPendingContactToday: () => Patient[]
   getPatientsByStep: (step: TreatmentStep) => Patient[]
+  getPatientsByDate: (date: string) => Patient[]
+  getPatientsByDateRange: (startDate: string, endDate: string) => Patient[]
   getPatientStages: (patientId: string) => TreatmentStage[]
+  getPatientLatestStage: (patientId: string) => TreatmentStage | undefined
   getPatientRecords: (patientId: string) => ContactRecord[]
 
   exportData: () => string
@@ -97,9 +114,7 @@ export const useStore = create<RootCanalStore>((set, get) => ({
       updatedAt: now,
     }
     set((state) => {
-      const newState = {
-        patients: [...state.patients, patient],
-      }
+      const newState = { patients: [...state.patients, patient] }
       saveData({ ...state, ...newState })
       return newState
     })
@@ -146,6 +161,7 @@ export const useStore = create<RootCanalStore>((set, get) => ({
                 currentStep: stageData.step,
                 suggestedFollowUpDate: stageData.suggestedFollowUpDate || p.suggestedFollowUpDate,
                 contactStatus: '待联系' as ContactStatus,
+                nextContactDate: undefined,
                 updatedAt: new Date().toISOString(),
               }
             : p
@@ -158,17 +174,23 @@ export const useStore = create<RootCanalStore>((set, get) => ({
   },
 
   addContactRecord: (recordData) => {
-    const record: ContactRecord = {
-      ...recordData,
-      id: generateId(),
-    }
+    const record: ContactRecord = { ...recordData, id: generateId() }
     set((state) => {
+      const patientUpdates: Partial<Patient> = {
+        contactStatus: recordData.status,
+        updatedAt: new Date().toISOString(),
+      }
+      if (recordData.nextContactDate) {
+        patientUpdates.nextContactDate = recordData.nextContactDate
+      }
+      if (recordData.rescheduledFollowUpDate) {
+        patientUpdates.suggestedFollowUpDate = recordData.rescheduledFollowUpDate
+        patientUpdates.nextContactDate = recordData.rescheduledFollowUpDate
+      }
       const newState = {
         contactRecords: [...state.contactRecords, record],
         patients: state.patients.map((p) =>
-          p.id === recordData.patientId
-            ? { ...p, contactStatus: recordData.status, updatedAt: new Date().toISOString() }
-            : p
+          p.id === recordData.patientId ? { ...p, ...patientUpdates } : p
         ),
       }
       saveData({ ...state, ...newState })
@@ -178,16 +200,51 @@ export const useStore = create<RootCanalStore>((set, get) => ({
 
   getOverduePatients: () => {
     const { patients } = get()
+    const today = formatDate(new Date().toISOString())
     return patients
-      .filter((p) => p.currentStep !== '已完成' && getDaysOverdue(p.suggestedFollowUpDate) > 0)
+      .filter((p) => {
+        if (p.currentStep === '已完成') return false
+        const days = getDaysOverdue(p.suggestedFollowUpDate)
+        return days > 0 && (!p.nextContactDate || p.nextContactDate <= today)
+      })
       .sort((a, b) => getDaysOverdue(b.suggestedFollowUpDate) - getDaysOverdue(a.suggestedFollowUpDate))
   },
 
-  getTodayContactList: () => {
+  getTodayDuePatients: () => {
+    const { patients } = get()
+    const today = formatDate(new Date().toISOString())
+    return patients
+      .filter((p) => {
+        if (p.currentStep === '已完成') return false
+        const days = getDaysOverdue(p.suggestedFollowUpDate)
+        const shouldContactToday = days === 0 ||
+          (p.nextContactDate && p.nextContactDate <= today && p.contactStatus !== '已联系')
+        return shouldContactToday && days <= 0
+      })
+      .sort((a, b) => {
+        const aPriority = a.contactStatus === '待联系' ? 0 : 1
+        const bPriority = b.contactStatus === '待联系' ? 0 : 1
+        return aPriority - bPriority
+      })
+  },
+
+  getFuturePatients: () => {
     const { patients } = get()
     return patients
-      .filter((p) => p.currentStep !== '已完成' && p.contactStatus === '待联系')
-      .sort((a, b) => getDaysOverdue(b.suggestedFollowUpDate) - getDaysOverdue(a.suggestedFollowUpDate))
+      .filter((p) => {
+        if (p.currentStep === '已完成') return false
+        const days = getDaysOverdue(p.suggestedFollowUpDate)
+        return days < 0
+      })
+      .sort((a, b) =>
+        new Date(a.suggestedFollowUpDate).getTime() - new Date(b.suggestedFollowUpDate).getTime()
+      )
+  },
+
+  getPendingContactToday: () => {
+    const overdue = get().getOverduePatients()
+    const today = get().getTodayDuePatients()
+    return [...overdue, ...today]
   },
 
   getPatientsByStep: (step) => {
@@ -195,11 +252,38 @@ export const useStore = create<RootCanalStore>((set, get) => ({
     return patients.filter((p) => p.currentStep === step)
   },
 
+  getPatientsByDate: (date) => {
+    const { patients } = get()
+    return patients.filter(
+      (p) => p.currentStep !== '已完成' && p.suggestedFollowUpDate === date
+    )
+  },
+
+  getPatientsByDateRange: (startDate, endDate) => {
+    const { patients } = get()
+    return patients
+      .filter(
+        (p) =>
+          p.currentStep !== '已完成' &&
+          p.suggestedFollowUpDate >= startDate &&
+          p.suggestedFollowUpDate <= endDate
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.suggestedFollowUpDate).getTime() -
+          new Date(b.suggestedFollowUpDate).getTime()
+      )
+  },
+
   getPatientStages: (patientId) => {
     const { treatmentStages } = get()
     return treatmentStages
       .filter((s) => s.patientId === patientId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  },
+
+  getPatientLatestStage: (patientId) => {
+    return get().getPatientStages(patientId)[0]
   },
 
   getPatientRecords: (patientId) => {

@@ -22,6 +22,7 @@ export interface Patient {
   currentStep: TreatmentStep
   contactStatus: ContactStatus
   suggestedFollowUpDate: string
+  nextContactDate?: string
   createdAt: string
   updatedAt: string
 }
@@ -45,6 +46,9 @@ export interface ContactRecord {
   status: ContactStatus
   contactDate: string
   remark: string
+  callNotes?: string
+  nextContactDate?: string
+  rescheduledFollowUpDate?: string
 }
 
 export const TREATMENT_STEPS: TreatmentStep[] = [

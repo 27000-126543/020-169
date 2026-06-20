@@ -4,21 +4,43 @@ import { useStore } from '@/store/useStore'
 import TreatmentTimeline from '@/components/treatment/TreatmentTimeline'
 import StageForm from '@/components/treatment/StageForm'
 import ContactScript from '@/components/contact/ContactScript'
-import ContactAction from '@/components/contact/ContactAction'
+import ContactModal from '@/components/contact/ContactModal'
 import { getToothLabel } from '@/utils/scripts'
-import { getDaysOverdue, isOverdue, getRelativeDateLabel, formatDate } from '@/utils/date'
-import { ArrowLeft, Plus, Phone, Trash2, AlertTriangle } from 'lucide-react'
+import {
+  getDaysOverdue,
+  isOverdue,
+  getRelativeDateLabel,
+  formatDate,
+  formatDateCN,
+} from '@/utils/date'
+import {
+  ArrowLeft,
+  Plus,
+  Phone,
+  Trash2,
+  AlertTriangle,
+  MessageSquare,
+  CalendarClock,
+  Clock,
+  PhoneOff,
+  CheckCircle,
+} from 'lucide-react'
 
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const patients = useStore((s) => s.patients)
   const deletePatient = useStore((s) => s.deletePatient)
+  const getPatientLatestStage = useStore((s) => s.getPatientLatestStage)
+  const getPatientRecords = useStore((s) => s.getPatientRecords)
   const [showStageForm, setShowStageForm] = useState(false)
   const [showScript, setShowScript] = useState(false)
+  const [showContactModal, setShowContactModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const patient = patients.find((p) => p.id === id)
+  const latestStage = patient ? getPatientLatestStage(patient.id) : undefined
+  const contactRecords = patient ? getPatientRecords(patient.id) : []
 
   if (!patient) {
     return (
@@ -40,6 +62,16 @@ export default function CaseDetailPage() {
   const handleDelete = () => {
     deletePatient(patient.id)
     navigate('/cases')
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case '已联系': return <CheckCircle size={14} className="text-success-500" />
+      case '无人接听': return <PhoneOff size={14} className="text-warm-500" />
+      case '改约': return <CalendarClock size={14} className="text-primary-500" />
+      case '疼痛需提前就诊': return <AlertTriangle size={14} className="text-danger-500" />
+      default: return <Clock size={14} className="text-accent-500" />
+    }
   }
 
   return (
@@ -73,13 +105,20 @@ export default function CaseDetailPage() {
               <span>当前步骤：<span className="text-primary-600 font-medium">{patient.currentStep}</span></span>
             </div>
             <div className="flex items-center gap-4 mt-2 text-sm">
-              <span className="text-gray-500">
-                建议复诊：{patient.suggestedFollowUpDate || '未设定'}
-              </span>
-              {patient.suggestedFollowUpDate && (
-                <span className={overdue ? 'text-danger-500 font-medium' : 'text-gray-500'}>
-                  {getRelativeDateLabel(patient.suggestedFollowUpDate)}
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">建议复诊：</span>
+                <span className={overdue ? 'text-danger-500 font-medium' : 'text-gray-700'}>
+                  {patient.suggestedFollowUpDate || '未设定'}
+                  {patient.suggestedFollowUpDate && (
+                    <span className="text-gray-400 ml-1">({getRelativeDateLabel(patient.suggestedFollowUpDate)})</span>
+                  )}
                 </span>
+              </div>
+              {patient.nextContactDate && (
+                <div className="flex items-center gap-1 text-primary-500">
+                  <Clock size={14} />
+                  下次联系：{patient.nextContactDate}
+                </div>
               )}
             </div>
           </div>
@@ -88,8 +127,15 @@ export default function CaseDetailPage() {
               onClick={() => setShowScript(!showScript)}
               className="flex items-center gap-1.5 text-sm text-primary-500 bg-primary-50 px-3 py-1.5 rounded-lg hover:bg-primary-100 transition-colors"
             >
-              <Phone size={14} />
+              <MessageSquare size={14} />
               沟通话术
+            </button>
+            <button
+              onClick={() => setShowContactModal(true)}
+              className="flex items-center gap-1.5 text-sm text-success-500 bg-success-50 px-3 py-1.5 rounded-lg hover:bg-success-100 transition-colors"
+            >
+              <Phone size={14} />
+              记录联系
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
@@ -108,15 +154,49 @@ export default function CaseDetailPage() {
               step={patient.currentStep}
               suggestedFollowUpDate={patient.suggestedFollowUpDate}
               daysAgo={Math.abs(daysOverdue)}
+              tooth={patient.tooth}
+              latestStage={latestStage}
             />
           </div>
         )}
-
-        <div className="mt-4 pt-4 border-t border-warm-100">
-          <p className="text-xs text-gray-400 mb-2">联系状态操作</p>
-          <ContactAction patientId={patient.id} currentStatus={patient.contactStatus} />
-        </div>
       </div>
+
+      {contactRecords.length > 0 && (
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-warm-100 mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <Phone size={16} className="text-primary-500" />
+            联系记录
+          </h3>
+          <div className="space-y-3">
+            {contactRecords.map((record) => (
+              <div key={record.id} className="bg-warm-50 rounded-lg p-3 border border-warm-100">
+                <div className="flex items-center gap-2 mb-1.5">
+                  {getStatusIcon(record.status)}
+                  <span className="text-sm font-medium text-gray-700">{record.status}</span>
+                  <span className="text-xs text-gray-400 ml-auto">{formatDateCN(record.contactDate)}</span>
+                </div>
+                {record.callNotes && (
+                  <p className="text-sm text-gray-600 pl-6">{record.callNotes}</p>
+                )}
+                <div className="flex flex-wrap gap-3 pl-6 mt-1.5">
+                  {record.nextContactDate && (
+                    <span className="text-xs text-primary-500 flex items-center gap-1">
+                      <Clock size={12} />
+                      下次联系：{record.nextContactDate}
+                    </span>
+                  )}
+                  {record.rescheduledFollowUpDate && (
+                    <span className="text-xs text-accent-500 flex items-center gap-1">
+                      <CalendarClock size={12} />
+                      新复诊日期：{record.rescheduledFollowUpDate}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-700">治疗记录</h2>
@@ -135,6 +215,18 @@ export default function CaseDetailPage() {
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onClick={() => setShowStageForm(false)}>
           <div className="animate-fade-in" onClick={(e) => e.stopPropagation()}>
             <StageForm patientId={patient.id} onClose={() => setShowStageForm(false)} />
+          </div>
+        </div>
+      )}
+
+      {showContactModal && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center" onClick={() => setShowContactModal(false)}>
+          <div className="animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <ContactModal
+              patientId={patient.id}
+              patientName={patient.name}
+              onClose={() => setShowContactModal(false)}
+            />
           </div>
         </div>
       )}
