@@ -21,11 +21,12 @@ type QueuePatient = Patient & { priority?: number; sortTime?: number }
 interface ContactQueueProps {
   startIndex?: number
   targetDate?: string
+  staffId?: string
   onExit: () => void
 }
 
-export default function ContactQueue({ startIndex = 0, targetDate, onExit }: ContactQueueProps) {
-  const rawQueue = useStore((s) => s.getQueuePatients(targetDate))
+export default function ContactQueue({ startIndex = 0, targetDate, staffId, onExit }: ContactQueueProps) {
+  const rawQueue = useStore((s) => s.getQueuePatients(targetDate, staffId))
   const getPatientLatestStage = useStore((s) => s.getPatientLatestStage)
   const getPatientLatestRecord = useStore((s) => s.getPatientLatestRecord)
   const hasContactOnDate = useStore((s) => s.hasContactOnDate)
@@ -100,13 +101,6 @@ export default function ContactQueue({ startIndex = 0, targetDate, onExit }: Con
   function handleContactComplete() {
     setShowResultPanel(false)
     setShowScript(false)
-    setTimeout(() => {
-      if (currentIndex < queue.length - 1) {
-        setCurrentIndex(currentIndex + 1)
-      } else {
-        onExit()
-      }
-    }, 100)
   }
 
   function getPriorityLabel(p: Patient & { priority?: number }) {

@@ -1,6 +1,6 @@
 import { useStore } from '@/store/useStore'
 import { formatDateCN, isToday, formatDate } from '@/utils/date'
-import { Phone, AlertTriangle, RefreshCw, ChevronRight } from 'lucide-react'
+import { Phone, AlertTriangle, RefreshCw, ChevronRight, CheckCircle, Clock, CalendarDays } from 'lucide-react'
 
 interface WeeklySummaryProps {
   onSelectDate?: (date: string) => void
@@ -9,7 +9,6 @@ interface WeeklySummaryProps {
 
 export default function WeeklySummary({ onSelectDate, onStartQueue }: WeeklySummaryProps) {
   const weeklySummary = useStore((s) => s.getWeeklySummary())
-  const getPatientsByDate = useStore((s) => s.getPatientsByDate)
 
   const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
@@ -25,8 +24,24 @@ export default function WeeklySummary({ onSelectDate, onStartQueue }: WeeklySumm
   return (
     <div className="bg-white rounded-xl shadow-sm border border-warm-100 p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-700">本周复诊排班摘要</h3>
-        <span className="text-xs text-gray-400">点击日期查看详情</span>
+        <div className="flex items-center gap-2">
+          <CalendarDays size={16} className="text-primary-500" />
+          <h3 className="font-semibold text-gray-700">本周复诊排班摘要</h3>
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-gray-400">
+          <span className="flex items-center gap-1">
+            <Phone size={10} className="text-primary-400" />
+            复诊
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock size={10} className="text-accent-400" />
+            回电
+          </span>
+          <span className="flex items-center gap-1">
+            <CheckCircle size={10} className="text-success-400" />
+            已完成
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-7 gap-2">
@@ -57,32 +72,55 @@ export default function WeeklySummary({ onSelectDate, onStartQueue }: WeeklySumm
 
               {hasPatients ? (
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <div className="flex items-center gap-1 text-gray-500">
-                      <Phone size={10} className="text-primary-400" />
-                      <span>{day.total}</span>
-                    </div>
-                  </div>
-                  {day.overdue > 0 && (
+                  {day.followUpCount > 0 && (
                     <div className="flex items-center justify-between text-[10px]">
-                      <div className="flex items-center gap-1 text-danger-500">
+                      <span className="flex items-center gap-1 text-primary-600">
+                        <Phone size={10} />
+                        复诊
+                      </span>
+                      <span className="font-medium text-primary-700">{day.followUpCount}</span>
+                    </div>
+                  )}
+                  {day.callbackCount > 0 && (
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="flex items-center gap-1 text-accent-600">
+                        <Clock size={10} />
+                        回电
+                      </span>
+                      <span className="font-medium text-accent-700">{day.callbackCount}</span>
+                    </div>
+                  )}
+                  {day.completedCount > 0 && (
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="flex items-center gap-1 text-success-600">
+                        <CheckCircle size={10} />
+                        已完成
+                      </span>
+                      <span className="font-medium text-success-700">{day.completedCount}</span>
+                    </div>
+                  )}
+                  {day.overdueCount > 0 && (
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="flex items-center gap-1 text-danger-500">
                         <AlertTriangle size={10} />
-                        <span>{day.overdue}超期</span>
-                      </div>
+                        超期
+                      </span>
+                      <span className="font-medium text-danger-600">{day.overdueCount}</span>
                     </div>
                   )}
-                  {day.rescheduled > 0 && (
+                  {day.rescheduledCount > 0 && (
                     <div className="flex items-center justify-between text-[10px]">
-                      <div className="flex items-center gap-1 text-accent-500">
+                      <span className="flex items-center gap-1 text-amber-600">
                         <RefreshCw size={10} />
-                        <span>{day.rescheduled}改约</span>
-                      </div>
+                        改约
+                      </span>
+                      <span className="font-medium text-amber-700">{day.rescheduledCount}</span>
                     </div>
                   )}
-                  <div className="pt-1 border-t border-warm-100">
+                  <div className="pt-1.5 border-t border-warm-100 mt-1.5">
                     <button
                       onClick={(e) => handleStartQueue(e, day.date)}
-                      className="w-full flex items-center justify-center gap-1 py-1 text-[10px] text-primary-500 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                      className="w-full flex items-center justify-center gap-1 py-1 text-[10px] text-primary-500 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors font-medium"
                     >
                       进入队列
                       <ChevronRight size={10} />
@@ -90,13 +128,13 @@ export default function WeeklySummary({ onSelectDate, onStartQueue }: WeeklySumm
                   </div>
                 </div>
               ) : (
-                <div className="text-center text-[10px] text-gray-300 py-2">
+                <div className="text-center text-[10px] text-gray-300 py-3">
                   无预约
                 </div>
               )}
 
               {isTodayDate && (
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-accent-400 rounded-full" />
+                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-accent-400 rounded-full animate-pulse" />
               )}
             </div>
           )

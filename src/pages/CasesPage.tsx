@@ -6,6 +6,7 @@ import ContactStatusBadge from '@/components/patient/ContactStatusBadge'
 import FollowUpCalendar from '@/components/calendar/FollowUpCalendar'
 import WeeklySummary from '@/components/calendar/WeeklySummary'
 import DailySchedule from '@/components/calendar/DailySchedule'
+import StaffDutyBoard from '@/components/calendar/StaffDutyBoard'
 import ContactQueue from '@/components/contact/ContactQueue'
 import { getToothLabel } from '@/utils/scripts'
 import {
@@ -16,9 +17,9 @@ import {
   formatDateCN,
 } from '@/utils/date'
 import type { TreatmentStep, ContactStatus, Patient } from '@/types'
-import { Plus, Search, List, Calendar, CalendarDays, ChevronRight, CalendarClock } from 'lucide-react'
+import { Plus, Search, List, Calendar, CalendarDays, ChevronRight, CalendarClock, Users } from 'lucide-react'
 
-type ViewMode = 'list' | 'calendar' | 'week' | 'summary' | 'daily'
+type ViewMode = 'list' | 'calendar' | 'week' | 'summary' | 'daily' | 'duty'
 
 export default function CasesPage() {
   const patients = useStore((s) => s.patients)
@@ -75,9 +76,13 @@ export default function CasesPage() {
   const datePatients = getPatientsByDate(selectedDate)
 
   if (showQueueForDate) {
+    const [queueDate, queueStaffId] = showQueueForDate.includes('|')
+      ? showQueueForDate.split('|')
+      : [showQueueForDate, undefined]
     return (
       <ContactQueue
-        targetDate={showQueueForDate}
+        targetDate={queueDate}
+        staffId={queueStaffId || undefined}
         onExit={() => setShowQueueForDate(null)}
       />
     )
@@ -148,6 +153,15 @@ export default function CasesPage() {
             >
               <Calendar size={14} />
               月历视图
+            </button>
+            <button
+              onClick={() => setViewMode('duty')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'duty' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Users size={14} />
+              值班看板
             </button>
           </div>
 
@@ -229,6 +243,19 @@ export default function CasesPage() {
             <DailySchedule
               date={selectedDate}
               onStartQueue={(date) => setShowQueueForDate(date)}
+            />
+          </div>
+        )}
+
+        {viewMode === 'duty' && (
+          <div className="p-4">
+            <StaffDutyBoard
+              selectedDate={selectedDate}
+              onDateChange={(date) => setSelectedDate(date)}
+              onSelectPatient={(patientId) => navigate(`/cases/${patientId}`)}
+              onStartQueueForStaff={(staffId) => {
+                setShowQueueForDate(selectedDate + '|' + staffId)
+              }}
             />
           </div>
         )}

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import type { Patient, TreatmentStage, ContactRecord, TreatmentStep, ContactStatus } from '@/types'
-import { getDaysOverdue, formatDate, isOverdue } from '@/utils/date'
+import type { Patient, TreatmentStage, ContactRecord, TreatmentStep, ContactStatus, Staff } from '@/types'
+import { DEFAULT_STAFFS } from '@/types'
+import { getDaysOverdue, formatDate, formatTime, isOverdue } from '@/utils/date'
 
 const STORAGE_KEY = 'root-canal-tracker'
 
@@ -8,6 +9,7 @@ interface StoreData {
   patients: Patient[]
   treatmentStages: TreatmentStage[]
   contactRecords: ContactRecord[]
+  staffs: Staff[]
 }
 
 function loadData(): StoreData {
@@ -35,14 +37,14 @@ function generateSeedData(): StoreData {
   todayAfternoon.setHours(15, 30, 0, 0)
 
   const patients: Patient[] = [
-    { id: 'seed1', name: '王建华', phone: '13800138001', tooth: '16', currentStep: '已封药待复诊', contactStatus: '待联系', suggestedFollowUpDate: fiveDaysAgo, createdAt: sevenDaysAgo, updatedAt: threeDaysAgo },
-    { id: 'seed2', name: '李美玲', phone: '13900139002', tooth: '36', currentStep: '已预备待充填', contactStatus: '待联系', suggestedFollowUpDate: threeDaysAgo, createdAt: sevenDaysAgo, updatedAt: threeDaysAgo },
-    { id: 'seed5', name: '刘大明', phone: '13500135005', tooth: '14', currentStep: '开髓引流', contactStatus: '无人接听', suggestedFollowUpDate: yesterday, nextContactAt: todayAfternoon.toISOString(), createdAt: threeDaysAgo, updatedAt: yesterday },
-    { id: 'seed6', name: '赵雅芳', phone: '13400134006', tooth: '26', currentStep: '已封药待复诊', contactStatus: '待联系', suggestedFollowUpDate: today, createdAt: fiveDaysAgo, updatedAt: twoDaysLater },
-    { id: 'seed7', name: '钱建国', phone: '13300133007', tooth: '46', currentStep: '已预备待充填', contactStatus: '待联系', suggestedFollowUpDate: today, createdAt: fiveDaysAgo, updatedAt: twoDaysLater },
-    { id: 'seed3', name: '张伟', phone: '13700137003', tooth: '24', currentStep: '已封药待复诊', contactStatus: '改约', suggestedFollowUpDate: twoDaysLater, createdAt: fiveDaysAgo, updatedAt: yesterday },
-    { id: 'seed8', name: '孙丽华', phone: '13200132008', tooth: '37', currentStep: '已充填待冠修复', contactStatus: '待联系', suggestedFollowUpDate: threeDaysLater, createdAt: sevenDaysAgo, updatedAt: yesterday },
-    { id: 'seed4', name: '陈晓红', phone: '13600136004', tooth: '47', currentStep: '已充填待冠修复', contactStatus: '待联系', suggestedFollowUpDate: fiveDaysLater, createdAt: sevenDaysAgo, updatedAt: yesterday },
+    { id: 'seed1', name: '王建华', phone: '13800138001', tooth: '16', currentStep: '已封药待复诊', contactStatus: '待联系', suggestedFollowUpDate: fiveDaysAgo, assignedTo: 'staff1', createdAt: sevenDaysAgo, updatedAt: threeDaysAgo },
+    { id: 'seed2', name: '李美玲', phone: '13900139002', tooth: '36', currentStep: '已预备待充填', contactStatus: '待联系', suggestedFollowUpDate: threeDaysAgo, assignedTo: 'staff1', createdAt: sevenDaysAgo, updatedAt: threeDaysAgo },
+    { id: 'seed5', name: '刘大明', phone: '13500135005', tooth: '14', currentStep: '开髓引流', contactStatus: '无人接听', suggestedFollowUpDate: yesterday, nextContactAt: todayAfternoon.toISOString(), assignedTo: 'staff2', createdAt: threeDaysAgo, updatedAt: yesterday },
+    { id: 'seed6', name: '赵雅芳', phone: '13400134006', tooth: '26', currentStep: '已封药待复诊', contactStatus: '待联系', suggestedFollowUpDate: today, assignedTo: 'staff2', createdAt: fiveDaysAgo, updatedAt: twoDaysLater },
+    { id: 'seed7', name: '钱建国', phone: '13300133007', tooth: '46', currentStep: '已预备待充填', contactStatus: '待联系', suggestedFollowUpDate: today, assignedTo: 'staff3', createdAt: fiveDaysAgo, updatedAt: twoDaysLater },
+    { id: 'seed3', name: '张伟', phone: '13700137003', tooth: '24', currentStep: '已封药待复诊', contactStatus: '改约', suggestedFollowUpDate: twoDaysLater, assignedTo: 'staff1', createdAt: fiveDaysAgo, updatedAt: yesterday },
+    { id: 'seed8', name: '孙丽华', phone: '13200132008', tooth: '37', currentStep: '已充填待冠修复', contactStatus: '待联系', suggestedFollowUpDate: threeDaysLater, assignedTo: 'staff2', createdAt: sevenDaysAgo, updatedAt: yesterday },
+    { id: 'seed4', name: '陈晓红', phone: '13600136004', tooth: '47', currentStep: '已充填待冠修复', contactStatus: '待联系', suggestedFollowUpDate: fiveDaysLater, assignedTo: 'staff3', createdAt: sevenDaysAgo, updatedAt: yesterday },
   ]
 
   const treatmentStages: TreatmentStage[] = [
@@ -72,7 +74,7 @@ function generateSeedData(): StoreData {
     { id: 'cr2', patientId: 'seed5', status: '无人接听', contactDate: yesterday, remark: '', callNotes: '上午未接，下午15:30再打', nextContactAt: todayAfternoon.toISOString() },
   ]
 
-  return { patients, treatmentStages, contactRecords }
+  return { patients, treatmentStages, contactRecords, staffs: [...DEFAULT_STAFFS] }
 }
 
 function saveData(data: StoreData) {
@@ -87,6 +89,7 @@ interface RootCanalStore extends StoreData {
   addPatient: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => Patient
   updatePatient: (id: string, updates: Partial<Patient>) => void
   deletePatient: (id: string) => void
+  assignPatient: (patientId: string, staffId: string | undefined) => void
 
   addTreatmentStage: (stage: Omit<TreatmentStage, 'id' | 'createdAt'>) => TreatmentStage
 
@@ -96,7 +99,7 @@ interface RootCanalStore extends StoreData {
   getTodayDuePatients: () => Patient[]
   getFuturePatients: () => Patient[]
   getPendingContactToday: () => Patient[]
-  getQueuePatients: (targetDate?: string) => Patient[]
+  getQueuePatients: (targetDate?: string, staffId?: string) => Patient[]
   getPatientsByStep: (step: TreatmentStep) => Patient[]
   getPatientsByDate: (date: string) => Patient[]
   getPatientsByDateRange: (startDate: string, endDate: string) => Patient[]
@@ -108,9 +111,31 @@ interface RootCanalStore extends StoreData {
   getWeeklySummary: () => Array<{
     date: string
     total: number
-    overdue: number
-    rescheduled: number
+    followUpCount: number
+    callbackCount: number
+    completedCount: number
+    overdueCount: number
+    rescheduledCount: number
   }>
+  getDailyScheduleByStaff: (date: string) => Array<{
+    staffId: string
+    staffName: string
+    staffColor: string
+    morning: Patient[]
+    afternoon: Patient[]
+    evening: Patient[]
+    total: number
+  }>
+  getFollowUpTimeline: (patientId: string) => Array<{
+    type: 'stage' | 'contact' | 'nextContact' | 'followUp'
+    date: string
+    title: string
+    description?: string
+  }>
+
+  addStaff: (staff: Omit<Staff, 'id'>) => Staff
+  updateStaff: (id: string, updates: Partial<Staff>) => void
+  toggleStaffActive: (id: string) => void
 
   exportData: () => string
   importData: (json: string) => boolean
@@ -254,7 +279,7 @@ export const useStore = create<RootCanalStore>((set, get) => ({
       })
   },
 
-  getQueuePatients: (targetDate) => {
+  getQueuePatients: (targetDate, staffId) => {
     const { patients } = get()
     const target = targetDate ? new Date(targetDate) : new Date()
     const targetDayStart = new Date(target.getFullYear(), target.getMonth(), target.getDate())
@@ -266,6 +291,7 @@ export const useStore = create<RootCanalStore>((set, get) => ({
     const withPriority = patients
       .filter((p) => {
         if (p.currentStep === '已完成') return false
+        if (staffId && p.assignedTo !== staffId) return false
         if (get().hasContactOnDate(p.id, formatDate(targetDayStart.toISOString()))) return false
         return true
       })
@@ -319,6 +345,20 @@ export const useStore = create<RootCanalStore>((set, get) => ({
     )
   },
 
+  assignPatient: (patientId, staffId) => {
+    set((state) => {
+      const newState = {
+        patients: state.patients.map((p) =>
+          p.id === patientId
+            ? { ...p, assignedTo: staffId, updatedAt: new Date().toISOString() }
+            : p
+        ),
+      }
+      saveData({ ...state, ...newState })
+      return newState
+    })
+  },
+
   getFuturePatients: () => {
     const { patients } = get()
     return patients
@@ -351,23 +391,192 @@ export const useStore = create<RootCanalStore>((set, get) => ({
       const d = new Date(today)
       d.setDate(today.getDate() + i)
       const dateStr = formatDate(d.toISOString())
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+      const dayEnd = new Date(dayStart)
+      dayEnd.setHours(23, 59, 59, 999)
 
-      const dayPatients = patients.filter(
+      const followUpPatients = patients.filter(
         (p) => p.currentStep !== '已完成' && p.suggestedFollowUpDate === dateStr
       )
-      const overdueCount = dayPatients.filter((p) => isOverdue(p.suggestedFollowUpDate)).length
+      const callbackPatients = patients.filter((p) => {
+        if (p.currentStep === '已完成') return false
+        if (!p.nextContactAt) return false
+        const nc = new Date(p.nextContactAt)
+        return nc >= dayStart && nc <= dayEnd && p.suggestedFollowUpDate !== dateStr
+      })
+      const completedCount = contactRecords.filter(
+        (r) => r.contactDate === dateStr && r.status === '已联系'
+      ).length
+      const overdueCount = followUpPatients.filter((p) => isOverdue(p.suggestedFollowUpDate)).length
       const rescheduledCount = contactRecords.filter(
         (r) => r.rescheduledFollowUpDate === dateStr
       ).length
 
       result.push({
         date: dateStr,
-        total: dayPatients.length,
-        overdue: overdueCount,
-        rescheduled: rescheduledCount,
+        total: followUpPatients.length + callbackPatients.length,
+        followUpCount: followUpPatients.length,
+        callbackCount: callbackPatients.length,
+        completedCount,
+        overdueCount,
+        rescheduledCount,
       })
     }
     return result
+  },
+
+  getDailyScheduleByStaff: (date) => {
+    const { patients, staffs } = get()
+    const dayStart = new Date(new Date(date).getFullYear(), new Date(date).getMonth(), new Date(date).getDate())
+    const dayEnd = new Date(dayStart)
+    dayEnd.setHours(23, 59, 59, 999)
+
+    const dayPatients = patients.filter((p) => {
+      if (p.currentStep === '已完成') return false
+      const isFollowUp = p.suggestedFollowUpDate === date
+      const hasCallback =
+        p.nextContactAt &&
+        new Date(p.nextContactAt) >= dayStart &&
+        new Date(p.nextContactAt) <= dayEnd
+      return isFollowUp || hasCallback
+    })
+
+    function getSlot(p: Patient): 'morning' | 'afternoon' | 'evening' {
+      if (p.nextContactAt) {
+        const h = new Date(p.nextContactAt).getHours()
+        if (h < 12) return 'morning'
+        if (h < 18) return 'afternoon'
+        return 'evening'
+      }
+      return 'morning'
+    }
+
+    const activeStaffs = staffs.filter((s) => s.active)
+    const staffMap = new Map<string, { morning: Patient[]; afternoon: Patient[]; evening: Patient[]; total: number }>()
+
+    activeStaffs.forEach((s) => {
+      staffMap.set(s.id, { morning: [], afternoon: [], evening: [], total: 0 })
+    })
+    staffMap.set('unassigned', { morning: [], afternoon: [], evening: [], total: 0 })
+
+    dayPatients.forEach((p) => {
+      const slot = getSlot(p)
+      const key = p.assignedTo || 'unassigned'
+      if (staffMap.has(key)) {
+        staffMap.get(key)![slot].push(p)
+        staffMap.get(key)!.total++
+      } else {
+        staffMap.get('unassigned')![slot].push(p)
+        staffMap.get('unassigned')!.total++
+      }
+    })
+
+    const result = []
+    activeStaffs.forEach((s) => {
+      const data = staffMap.get(s.id)!
+      result.push({
+        staffId: s.id,
+        staffName: s.name,
+        staffColor: s.color,
+        ...data,
+      })
+    })
+    if (staffMap.get('unassigned')!.total > 0) {
+      result.push({
+        staffId: 'unassigned',
+        staffName: '未分配',
+        staffColor: '#9ca3af',
+        ...staffMap.get('unassigned')!,
+      })
+    }
+
+    return result
+  },
+
+  getFollowUpTimeline: (patientId) => {
+    const stages = get().getPatientStages(patientId)
+    const records = get().getPatientRecords(patientId)
+    const patient = get().patients.find((p) => p.id === patientId)
+    if (!patient) return []
+
+    const timeline: Array<{
+      type: 'stage' | 'contact' | 'nextContact' | 'followUp'
+      date: string
+      title: string
+      description?: string
+    }> = []
+
+    stages.forEach((s) => {
+      timeline.push({
+        type: 'stage',
+        date: s.date,
+        title: s.step,
+        description: s.notes || undefined,
+      })
+    })
+
+    records.forEach((r) => {
+      timeline.push({
+        type: 'contact',
+        date: r.contactDate,
+        title: `联系记录：${r.status}`,
+        description: r.callNotes || undefined,
+      })
+    })
+
+    if (patient.nextContactAt && new Date(patient.nextContactAt) > new Date()) {
+      timeline.push({
+        type: 'nextContact',
+        date: formatDate(patient.nextContactAt),
+        title: '下次联系',
+        description: `计划回电时间：${formatDate(patient.nextContactAt)} ${patient.nextContactAt ? formatTime(patient.nextContactAt) : ''}`,
+      })
+    }
+
+    if (patient.suggestedFollowUpDate && new Date(patient.suggestedFollowUpDate) >= new Date()) {
+      timeline.push({
+        type: 'followUp',
+        date: patient.suggestedFollowUpDate,
+        title: '建议复诊日期',
+        description: `当前阶段：${patient.currentStep}`,
+      })
+    }
+
+    timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+    return timeline
+  },
+
+  addStaff: (staffData) => {
+    const staff: Staff = { ...staffData, id: generateId() }
+    set((state) => {
+      const newState = { staffs: [...state.staffs, staff] }
+      saveData({ ...state, ...newState })
+      return newState
+    })
+    return staff
+  },
+
+  updateStaff: (id, updates) => {
+    set((state) => {
+      const newState = {
+        staffs: state.staffs.map((s) => (s.id === id ? { ...s, ...updates } : s)),
+      }
+      saveData({ ...state, ...newState })
+      return newState
+    })
+  },
+
+  toggleStaffActive: (id) => {
+    set((state) => {
+      const newState = {
+        staffs: state.staffs.map((s) =>
+          s.id === id ? { ...s, active: !s.active } : s
+        ),
+      }
+      saveData({ ...state, ...newState })
+      return newState
+    })
   },
 
   getPatientsByStep: (step) => {

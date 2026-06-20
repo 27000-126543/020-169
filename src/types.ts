@@ -14,6 +14,14 @@ export type ContactStatus =
 
 export type PainLevel = "无痛" | "轻微" | "中度" | "剧烈"
 
+export interface Staff {
+  id: string
+  name: string
+  role: string
+  color: string
+  active: boolean
+}
+
 export interface Patient {
   id: string
   name: string
@@ -23,6 +31,7 @@ export interface Patient {
   contactStatus: ContactStatus
   suggestedFollowUpDate: string
   nextContactAt?: string
+  assignedTo?: string
   createdAt: string
   updatedAt: string
 }
@@ -68,3 +77,9 @@ export const CONTACT_STATUSES: ContactStatus[] = [
 ]
 
 export const PAIN_LEVELS: PainLevel[] = ["无痛", "轻微", "中度", "剧烈"]
+
+export const DEFAULT_STAFFS: Staff[] = [
+  { id: "staff1", name: "小王", role: "前台", color: "#10b981", active: true },
+  { id: "staff2", name: "小李", role: "前台", color: "#f59e0b", active: true },
+  { id: "staff3", name: "张护士", role: "护士助理", color: "#8b5cf6", active: true },
+]

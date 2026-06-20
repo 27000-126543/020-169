@@ -70,6 +70,15 @@ export function isToday(dateStr: string): boolean {
     d.getDate() === now.getDate()
 }
 
+export function isPast(dateStr: string): boolean {
+  if (!dateStr) return false
+  const d = new Date(dateStr)
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime() < now.getTime()
+}
+
 export function isTodayOrPast(dateStr: string): boolean {
   if (!dateStr) return false
   const d = new Date(dateStr)

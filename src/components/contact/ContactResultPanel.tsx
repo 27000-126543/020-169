@@ -34,20 +34,36 @@ export default function ContactResultPanel({ patientId, patientName, defaultDate
 
   const patient = getPatient(patientId)
   const latestRecord = getPatientLatestRecord(patientId)
+  const targetDate = defaultDate || getTodayStr()
 
-  const initNextDate = defaultDate || latestRecord?.nextContactAt ? formatDate(latestRecord?.nextContactAt || new Date().toISOString()) : getTodayStr()
-  const initNextTime = latestRecord?.nextContactAt ? formatTime(latestRecord.nextContactAt) : (patient?.nextContactAt ? formatTime(patient.nextContactAt) : '09:30')
-  const initRescheduled = patient?.suggestedFollowUpDate || defaultDate || getTodayStr()
+  const getDefaultNextDateTime = () => {
+    if (latestRecord?.nextContactAt) {
+      return { date: formatDate(latestRecord.nextContactAt), time: formatTime(latestRecord.nextContactAt) }
+    }
+    if (patient?.nextContactAt) {
+      return { date: formatDate(patient.nextContactAt), time: formatTime(patient.nextContactAt) }
+    }
+    return { date: targetDate, time: '15:30' }
+  }
+
+  const defaultNext = getDefaultNextDateTime()
+  const initRescheduled = patient?.suggestedFollowUpDate || targetDate
 
   const [status, setStatus] = useState<ContactStatus>(latestRecord?.status || '待联系')
   const [callNotes, setCallNotes] = useState(latestRecord?.callNotes || '')
-  const [nextContactDate, setNextContactDate] = useState(initNextDate)
-  const [nextContactTime, setNextContactTime] = useState(initNextTime)
+  const [nextContactDate, setNextContactDate] = useState(defaultNext.date)
+  const [nextContactTime, setNextContactTime] = useState(defaultNext.time)
   const [rescheduledFollowUpDate, setRescheduledFollowUpDate] = useState(initRescheduled)
   const [showPreview, setShowPreview] = useState(false)
 
   const showNextContact = status === '无人接听' || status === '改约' || status === '待联系'
   const showRescheduled = status === '改约' || status === '疼痛需提前就诊'
+
+  const addDays = (dateStr: string, days: number) => {
+    const d = new Date(dateStr)
+    d.setDate(d.getDate() + days)
+    return formatDate(d.toISOString())
+  }
 
   const previewNextContactAt = showNextContact ? combineDateAndTime(nextContactDate, nextContactTime) : undefined
 

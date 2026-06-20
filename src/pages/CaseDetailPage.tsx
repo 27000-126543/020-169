@@ -5,6 +5,7 @@ import TreatmentTimeline from '@/components/treatment/TreatmentTimeline'
 import StageForm from '@/components/treatment/StageForm'
 import ContactScript from '@/components/contact/ContactScript'
 import ContactModal from '@/components/contact/ContactModal'
+import FollowUpTimeline from '@/components/patient/FollowUpTimeline'
 import { getToothLabel } from '@/utils/scripts'
 import {
   getDaysOverdue,
@@ -162,42 +163,60 @@ export default function CaseDetailPage() {
         )}
       </div>
 
-      {contactRecords.length > 0 && (
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-warm-100 mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <Phone size={16} className="text-primary-500" />
-            联系记录
-          </h3>
-          <div className="space-y-3">
-            {contactRecords.map((record) => (
-              <div key={record.id} className="bg-warm-50 rounded-lg p-3 border border-warm-100">
-                <div className="flex items-center gap-2 mb-1.5">
-                  {getStatusIcon(record.status)}
-                  <span className="text-sm font-medium text-gray-700">{record.status}</span>
-                  <span className="text-xs text-gray-400 ml-auto">{formatDateCN(record.contactDate)}</span>
-                </div>
-                {record.callNotes && (
-                  <p className="text-sm text-gray-600 pl-6">{record.callNotes}</p>
-                )}
-                <div className="flex flex-wrap gap-3 pl-6 mt-1.5">
-                  {record.nextContactAt && (
-                    <span className="text-xs text-primary-500 flex items-center gap-1">
-                      <Clock size={12} />
-                      下次联系：{formatDateTimeCN(record.nextContactAt)}
-                    </span>
-                  )}
-                  {record.rescheduledFollowUpDate && (
-                    <span className="text-xs text-accent-500 flex items-center gap-1">
-                      <CalendarClock size={12} />
-                      新复诊日期：{record.rescheduledFollowUpDate}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+      <div className="grid grid-cols-5 gap-6 mb-6">
+        <div className="col-span-2">
+          <FollowUpTimeline
+            patientId={patient.id}
+            onSelectDate={(date) => {
+              navigate(`/cases?date=${date}`)
+            }}
+          />
         </div>
-      )}
+
+        <div className="col-span-3">
+          {contactRecords.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-warm-100 p-4 h-full">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <Phone size={16} className="text-primary-500" />
+                详细联系记录
+              </h3>
+              <div className="space-y-2.5 max-h-[500px] overflow-y-auto">
+                {contactRecords.map((record) => (
+                  <div key={record.id} className="bg-warm-50 rounded-lg p-3 border border-warm-100">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      {getStatusIcon(record.status)}
+                      <span className="text-sm font-medium text-gray-700">{record.status}</span>
+                      <span className="text-xs text-gray-400 ml-auto">{formatDateCN(record.contactDate)}</span>
+                    </div>
+                    {record.callNotes && (
+                      <p className="text-sm text-gray-600 pl-6">{record.callNotes}</p>
+                    )}
+                    <div className="flex flex-wrap gap-3 pl-6 mt-1.5">
+                      {record.nextContactAt && (
+                        <span className="text-xs text-primary-500 flex items-center gap-1">
+                          <Clock size={12} />
+                          下次联系：{formatDateTimeCN(record.nextContactAt)}
+                        </span>
+                      )}
+                      {record.rescheduledFollowUpDate && (
+                        <span className="text-xs text-accent-500 flex items-center gap-1">
+                          <CalendarClock size={12} />
+                          新复诊日期：{record.rescheduledFollowUpDate}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {contactRecords.length === 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-warm-100 p-6 h-full flex items-center justify-center">
+              <p className="text-sm text-gray-400">暂无联系记录</p>
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-700">治疗记录</h2>
